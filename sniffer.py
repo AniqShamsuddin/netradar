@@ -23,3 +23,26 @@
 
 # EDGE CASES: Print "Not an IP Packet" and stop handling the packet 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from scapy.all import sniff, IP, TCP, UDP
+
+def handle_packet(packet):
+    print(packet.summary())
+
+sniff(prn=handle_packet, count=20)
