@@ -43,6 +43,12 @@
 from scapy.all import sniff, IP, TCP, UDP
 
 def handle_packet(packet):
-    print(packet.summary())
-
+    if not packet.haslayer(IP):
+        print("Not an IP packet")
+        return
+    source_ip = packet[IP].src
+    destination_ip = packet[IP].dst
+    print(f"{source_ip} -> {destination_ip}")
+ 
 sniff(prn=handle_packet, count=20)
+
