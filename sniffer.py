@@ -59,5 +59,5 @@ def handle_packet(packet):
     else:
        print(f"{source_ip} -> {destination_ip} | Other")
 
-sniff(prn=handle_packet, count=20)
+sniff(prn=handle_packet, filter = "not port 22",  count=20)
 
