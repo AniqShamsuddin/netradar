@@ -48,7 +48,16 @@ def handle_packet(packet):
         return
     source_ip = packet[IP].src
     destination_ip = packet[IP].dst
-    print(f"{source_ip} -> {destination_ip}")
- 
+    if packet.haslayer(TCP):
+       protocol = "TCP"
+       port = packet[TCP].dport
+       print (f"{source_ip} -> {destination_ip} | {protocol} | port {port}") 
+    elif packet.haslayer(UDP):
+       protocol = "UDP"
+       port = packet[UDP].dport
+       print (f"{source_ip} -> {destination_ip} | {protocol} | port {port}")
+    else:
+       print(f"{source_ip} -> {destination_ip} | Other")
+
 sniff(prn=handle_packet, count=20)
 
