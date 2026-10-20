@@ -40,8 +40,7 @@
 
 
 
-from scapy.all import sniff, IP, TCP, UDP, ARP
-
+from scapy.all import sniff, IP, TCP, UDP, ARP, wrpcap
 
 def handle_packet(packet):
     if not packet.haslayer(IP):
@@ -63,5 +62,5 @@ def handle_packet(packet):
     else:
        print(f"{source_ip} -> {destination_ip} | Other")
 
-sniff(prn=handle_packet, filter = "not port 22",  count=20)
-
+packets = sniff(prn=handle_packet, filter = "not port 22",  count=20)
+wrpcap("captured_packets.pcap", packets)
