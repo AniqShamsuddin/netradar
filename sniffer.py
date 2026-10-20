@@ -40,11 +40,15 @@
 
 
 
-from scapy.all import sniff, IP, TCP, UDP
+from scapy.all import sniff, IP, TCP, UDP, ARP
+
 
 def handle_packet(packet):
     if not packet.haslayer(IP):
-        print("Not an IP packet")
+        if packet.haslayer(ARP):
+           print(f"ARP | {packet[ARP].psrc} asking about {packet[ARP].pdst}")
+        else:
+           print(f"Not an IP Packet | {packet.summary()}")
         return
     source_ip = packet[IP].src
     destination_ip = packet[IP].dst
