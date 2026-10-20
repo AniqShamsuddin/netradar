@@ -23,6 +23,35 @@
 
 # EDGE CASES: Print "Not an IP Packet" and stop handling the packet 
 
+# PHASE 2: DEVICE DISCOVERY
+# Goal: track every device on the network by IP and MAC
+
+# STORAGE:
+# the storage is kept in the dictionary, which is created outside the function, 
+# with IP keys and MACs as values
+
+# PROCESS (for each ARP packet):
+# 1. Get the sender's IP from psrc and the sender's MAC from hwsrc
+# 2. If the IP is 0.0.0.0, skip it (a device with no address yet)
+# 3. Check: is this IP already a key in the dictionary?
+# 4. If NO: add the IP and MAC to the dictionary, then print New device discovered / Mapping added
+# 5. If YES: compare the stored MAC to the MAC in this packet
+#    - If they're the same: do nothing and continue (does anything need to happen?)
+#    - If they're different: print a WARNING, keep the old MAC in the dictionary
+#      (FUTURE: let the user approve the new MAC, e.g. from the dashboard)
+
+# OUTPUT:
+# (example lines for each case that p# Case 4 (New device discovered):
+#[INFO] New device discovered: 192.168.4.50 -> 00:0c:29:ab:cd:ef
+
+# Case 5 - Different MAC (IP Conflict / Spoofing Alert):
+#[WARNING] IP conflict detected! IP 192.168.4.50 is already mapped to 00:0c:29:ab:cd:ef,
+# but packet shows MAC aa:bb:cc:dd:ee:ff. Dictionary updated.
+#rints something)
+
+# EDGE CASES:
+# DHCP traffic came from 0.0.0.0, a device without an address, sends an ARP with sender IP 0.0.0.0,
+#this should not go into device list until ip address is given 
 
 
 
@@ -41,11 +70,21 @@
 
 
 from scapy.all import sniff, IP, TCP, UDP, ARP, wrpcap
+known_devices = {}
 
 def handle_packet(packet):
     if not packet.haslayer(IP):
         if packet.haslayer(ARP):
            print(f"ARP | {packet[ARP].psrc} asking about {packet[ARP].pdst}")
+           ip_address = packet[ARP].psrc
+           mac_address = packet[ARP].hwsrc
+           if ip_address == "0.0.0.0":
+                return
+           if ip_address not in known_devices:
+                known_devices[ip_address] = mac_address
+                print (f"[INFO] New device discovered: {ip_address} -> {mac_address}")
+           elif known_devices[ip_address] != mac_address:
+                print (f"[WARNING] MAC change for {ip_address}: was {known_devices[ip_address]}, now {mac_address}")
         else:
            print(f"Not an IP Packet | {packet.summary()}")
         return
@@ -62,5 +101,5 @@ def handle_packet(packet):
     else:
        print(f"{source_ip} -> {destination_ip} | Other")
 
-packets = sniff(prn=handle_packet, filter = "not port 22",  count=20)
+packets = sniff(prn=handle_packet, filter = "not on port 22",  count=20)
 wrpcap("captured_packets.pcap", packets)
