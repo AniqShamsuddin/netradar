@@ -68,9 +68,20 @@
 
 
 
-
+import csv
 from scapy.all import sniff, IP, TCP, UDP, ARP, wrpcap
 known_devices = {}
+vendors = {}
+
+with open("oui.csv", newline="") as f:   # open the file; it closes itself automatically when done
+    reader = csv.reader(f)                # reads the file row by row, handling quoted commas
+    next(reader)                          # skips one row (the header line)
+    for row in reader:                    # each row is a list of columns
+        prefix = row[1]                            # second column (Assignment)
+        company = row[2]                            # third column (Organization Name)
+        vendors[prefix] = company
+
+print(len(vendors))
 
 def handle_packet(packet):
     if not packet.haslayer(IP):
