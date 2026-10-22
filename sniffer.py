@@ -75,9 +75,12 @@ known_devices = {}
 def handle_packet(packet):
     if not packet.haslayer(IP):
         if packet.haslayer(ARP):
-           print(f"ARP | {packet[ARP].psrc} asking about {packet[ARP].pdst}")
            ip_address = packet[ARP].psrc
            mac_address = packet[ARP].hwsrc
+           if packet[ARP].op == 1:
+                print(f"ARP Request | {ip_address} asking who has {packet[ARP].pdst}")
+           elif packet[ARP].op == 2:
+                print(f"ARP Reply | {ip_address} is at {mac_address}")
            if ip_address == "0.0.0.0":
                 return
            if ip_address not in known_devices:
