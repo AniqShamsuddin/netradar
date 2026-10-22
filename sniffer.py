@@ -83,6 +83,12 @@ with open("oui.csv", newline="") as f:   # open the file; it closes itself autom
 
 print(len(vendors))
 
+def get_vendor(mac):
+    prefix = mac.replace(":","").upper()[:6]                     # your one-liner, using mac
+    if prefix in vendors:
+        return vendors[prefix]                   # look up the company for this prefix
+    return "Unknown vendor"
+
 def handle_packet(packet):
     if not packet.haslayer(IP):
         if packet.haslayer(ARP):
@@ -96,7 +102,7 @@ def handle_packet(packet):
                 return
            if ip_address not in known_devices:
                 known_devices[ip_address] = mac_address
-                print (f"[INFO] New device discovered: {ip_address} -> {mac_address}")
+                print (f"[INFO] New device discovered: {ip_address} -> {mac_address} ({get_vendor(mac_address)})")
            elif known_devices[ip_address] != mac_address:
                 print (f"[WARNING] MAC change for {ip_address}: was {known_devices[ip_address]}, now {mac_address}")
         else:
