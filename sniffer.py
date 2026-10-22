@@ -101,5 +101,5 @@ def handle_packet(packet):
     else:
        print(f"{source_ip} -> {destination_ip} | Other")
 
-packets = sniff(prn=handle_packet, filter = "not on port 22",  count=20)
+packets = sniff(prn=handle_packet, filter = "not port 22",  count=20)
 wrpcap("captured_packets.pcap", packets)
