@@ -54,7 +54,35 @@
 #this should not go into device list until ip address is given 
 
 
+# PHASE 3: PORT SCAN DETECTION (version 1)
+# Goal: flag any source that tries to connect to many different ports
 
+# SETTINGS:
+# PORT_SCAN_THRESHOLD = 15
+
+# STORAGE:
+# ports_seen: a dictionary created outside the function
+#   Key: source IP    Value: a set of destination ports (sets ignore duplicates)
+# flagged_scanners: a set of source IPs that were already reported
+
+# PROCESS (for each TCP packet):
+# 1. Only continue if the TCP flags are exactly "S" (a new connection attempt)
+# 2. Get the source IP and the destination port
+# 3. If this source IP is not in ports_seen yet, give it an empty set
+# 4. Add the destination port to that source's set
+# 5. Check: is the number of different ports greater than PORT_SCAN_THRESHOLD?
+# 6. If yes, AND the source is not in flagged_scanners:
+#    print a WARNING, then add the source to flagged_scanners
+# 7. If it was already flagged: do nothing (one alert per scanner, avoids alert fatigue)
+
+# OUTPUT:
+# [WARNING] Possible port scan from 192.168.4.99: 16 different ports contacted
+
+# EDGE CASES:
+# - Replies (SYN-ACK or ACK) go to many ephemeral ports, so only SYN packets
+#   are counted. Otherwise the homelab would flag itself just for replying.
+# - Repeated packets to the same port (like SSH on 22) count once, thanks to the set.
+# - FUTURE: add a time window, and detect slow scans spread over hours or days.
 
 
 
@@ -69,9 +97,12 @@
 
 
 import csv
-from scapy.all import sniff, IP, TCP, UDP, ARP, wrpcap
+from scapy.all import sniff, IP, TCP, UDP, ARP
 known_devices = {}
 vendors = {}
+PORT_SCAN_THRESHOLD = 15
+ports_seen = {}
+flagged_scanners = set()
 
 with open("oui.csv", newline="") as f:   # open the file; it closes itself automatically when done
     reader = csv.reader(f)                # reads the file row by row, handling quoted commas
@@ -88,6 +119,15 @@ def get_vendor(mac):
     if prefix in vendors:
         return vendors[prefix]                   # look up the company for this prefix
     return "Unknown vendor"
+
+def check_port_scan(source_ip, port):
+    if source_ip not in ports_seen:
+        ports_seen[source_ip] = set()
+    ports_seen[source_ip].add(port)
+    port_count = len(ports_seen[source_ip])
+    if port_count > PORT_SCAN_THRESHOLD and source_ip not in flagged_scanners :
+        print(f"[WARNING] Possible port scan from {source_ip}: {port_count} different ports contacted")
+        flagged_scanners.add(source_ip)
 
 def handle_packet(packet):
     if not packet.haslayer(IP):
@@ -113,6 +153,9 @@ def handle_packet(packet):
     if packet.haslayer(TCP):
        protocol = "TCP"
        port = packet[TCP].dport
+       flags = str(packet[TCP].flags)
+       if "S" in flags and "A" not in flags:
+           check_port_scan(source_ip, port)
        print (f"{source_ip} -> {destination_ip} | {protocol} | port {port}") 
     elif packet.haslayer(UDP):
        protocol = "UDP"
@@ -121,5 +164,4 @@ def handle_packet(packet):
     else:
        print(f"{source_ip} -> {destination_ip} | Other")
 
-packets = sniff(prn=handle_packet, filter = "not port 22",  count=20)
-wrpcap("captured_packets.pcap", packets)
+sniff(prn=handle_packet, filter="not port 22", store=False)
