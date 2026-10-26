@@ -101,8 +101,8 @@ from scapy.all import sniff, IP, TCP, UDP, ARP
 known_devices = {}
 vendors = {}
 PORT_SCAN_THRESHOLD = 15
-PORT_SCAN_WINDOW = 600  # only count ports contacted in the last 60 seconds
-ALERT_COOLDOWN = 30   # wait 10 minutes before alerting on the same source again
+PORT_SCAN_WINDOW = 60  # only count ports contacted in the last 60 seconds
+ALERT_COOLDOWN = 600   # wait 10 minutes before alerting on the same source again
 VERBOSE = False
 ports_seen = {}
 last_alerted = {}      # source IP -> time of its last port scan alert
@@ -114,6 +114,11 @@ with open("oui.csv", newline="") as f:   # open the file; it closes itself autom
         prefix = row[1]                            # second column (Assignment)
         company = row[2]                            # third column (Organization Name)
         vendors[prefix] = company
+PROTECTED_IPS = {
+    "192.168.4.1": "router",
+    "192.168.4.172": "homelab / Pi-hole DNS"
+}
+mac_alerted = {}      # IP -> time of its last MAC change alert
 
 print(f"[INFO] Loaded {len(vendors)} vendors prefixes from oui.csv")
 
@@ -138,6 +143,20 @@ def check_port_scan(source_ip, port):
             print(f"[WARNING] Possible port scan from {source_ip}: {port_count} different ports in the last {PORT_SCAN_WINDOW} seconds")
             last_alerted[source_ip] = now
 
+def check_mac_change(ip_address, old_mac, new_mac):
+    now = time.time()
+    last_alert = mac_alerted.get(ip_address)
+    if last_alert is not None and now - last_alert <= ALERT_COOLDOWN:
+        return
+    if ip_address in PROTECTED_IPS:
+        level = "CRITICAL"
+        role = f" ({PROTECTED_IPS[ip_address]})"
+    else:
+        level = "WARNING"
+        role = " "
+    print(f"[{level}] MAC change for {ip_address}{role}: was {old_mac} ({get_vendor(old_mac)}), now {new_mac} ({get_vendor(new_mac)})")
+    mac_alerted[ip_address] = now
+
 def handle_packet(packet):
     if not packet.haslayer(IP):
         if packet.haslayer(ARP):
@@ -155,7 +174,7 @@ def handle_packet(packet):
                 known_devices[ip_address] = mac_address
                 print (f"[INFO] New device discovered: {ip_address} -> {mac_address} ({get_vendor(mac_address)})")
            elif known_devices[ip_address] != mac_address:
-                print (f"[WARNING] MAC change for {ip_address}: was {known_devices[ip_address]}, now {mac_address}")
+                check_mac_change(ip_address, known_devices[ip_address], mac_address)
         else:
            if VERBOSE:
                print(f"Not an IP Packet | {packet.summary()}")
