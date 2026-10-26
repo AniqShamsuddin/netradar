@@ -101,6 +101,7 @@ from scapy.all import sniff, IP, TCP, UDP, ARP
 known_devices = {}
 vendors = {}
 PORT_SCAN_THRESHOLD = 15
+VERBOSE = False
 ports_seen = {}
 flagged_scanners = set()
 
@@ -112,7 +113,7 @@ with open("oui.csv", newline="") as f:   # open the file; it closes itself autom
         company = row[2]                            # third column (Organization Name)
         vendors[prefix] = company
 
-print(len(vendors))
+print(f"[INFO] Loaded {len(vendors)} vendors prefixes from oui.csv")
 
 def get_vendor(mac):
     prefix = mac.replace(":","").upper()[:6]                     # your one-liner, using mac
@@ -135,9 +136,11 @@ def handle_packet(packet):
            ip_address = packet[ARP].psrc
            mac_address = packet[ARP].hwsrc
            if packet[ARP].op == 1:
-                print(f"ARP Request | {ip_address} asking who has {packet[ARP].pdst}")
+                if VERBOSE:
+                    print(f"ARP Request | {ip_address} asking who has {packet[ARP].pdst}")
            elif packet[ARP].op == 2:
-                print(f"ARP Reply | {ip_address} is at {mac_address}")
+                if VERBOSE:
+                    print(f"ARP Reply | {ip_address} is at {mac_address}")
            if ip_address == "0.0.0.0":
                 return
            if ip_address not in known_devices:
@@ -146,7 +149,8 @@ def handle_packet(packet):
            elif known_devices[ip_address] != mac_address:
                 print (f"[WARNING] MAC change for {ip_address}: was {known_devices[ip_address]}, now {mac_address}")
         else:
-           print(f"Not an IP Packet | {packet.summary()}")
+           if VERBOSE:
+               print(f"Not an IP Packet | {packet.summary()}")
         return
     source_ip = packet[IP].src
     destination_ip = packet[IP].dst
@@ -156,12 +160,15 @@ def handle_packet(packet):
        flags = str(packet[TCP].flags)
        if "S" in flags and "A" not in flags:
            check_port_scan(source_ip, port)
-       print (f"{source_ip} -> {destination_ip} | {protocol} | port {port}") 
+       if VERBOSE:
+           print (f"{source_ip} -> {destination_ip} | {protocol} | port {port}") 
     elif packet.haslayer(UDP):
        protocol = "UDP"
        port = packet[UDP].dport
-       print (f"{source_ip} -> {destination_ip} | {protocol} | port {port}")
+       if VERBOSE:
+           print (f"{source_ip} -> {destination_ip} | {protocol} | port {port}")
     else:
-       print(f"{source_ip} -> {destination_ip} | Other")
+       if VERBOSE:
+           print(f"{source_ip} -> {destination_ip} | Other")
 
 sniff(prn=handle_packet, filter="not port 22", store=False)
