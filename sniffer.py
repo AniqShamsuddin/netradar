@@ -95,15 +95,17 @@
 
 
 
-
+import time
 import csv
 from scapy.all import sniff, IP, TCP, UDP, ARP
 known_devices = {}
 vendors = {}
 PORT_SCAN_THRESHOLD = 15
+PORT_SCAN_WINDOW = 600  # only count ports contacted in the last 60 seconds
+ALERT_COOLDOWN = 30   # wait 10 minutes before alerting on the same source again
 VERBOSE = False
 ports_seen = {}
-flagged_scanners = set()
+last_alerted = {}      # source IP -> time of its last port scan alert
 
 with open("oui.csv", newline="") as f:   # open the file; it closes itself automatically when done
     reader = csv.reader(f)                # reads the file row by row, handling quoted commas
@@ -122,13 +124,19 @@ def get_vendor(mac):
     return "Unknown vendor"
 
 def check_port_scan(source_ip, port):
+    now = time.time()
     if source_ip not in ports_seen:
-        ports_seen[source_ip] = set()
-    ports_seen[source_ip].add(port)
+        ports_seen[source_ip] = {}
+    ports_seen[source_ip][port] = now
+    for old_port, seen_time in list(ports_seen[source_ip].items()):
+        if now - seen_time > PORT_SCAN_WINDOW:
+            del ports_seen[source_ip][old_port]
     port_count = len(ports_seen[source_ip])
-    if port_count > PORT_SCAN_THRESHOLD and source_ip not in flagged_scanners :
-        print(f"[WARNING] Possible port scan from {source_ip}: {port_count} different ports contacted")
-        flagged_scanners.add(source_ip)
+    if port_count > PORT_SCAN_THRESHOLD:
+        last_alert = last_alerted.get(source_ip)
+        if last_alert is None or now - last_alert > ALERT_COOLDOWN:
+            print(f"[WARNING] Possible port scan from {source_ip}: {port_count} different ports in the last {PORT_SCAN_WINDOW} seconds")
+            last_alerted[source_ip] = now
 
 def handle_packet(packet):
     if not packet.haslayer(IP):
