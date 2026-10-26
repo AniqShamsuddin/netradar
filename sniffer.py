@@ -106,6 +106,9 @@ ALERT_COOLDOWN = 600   # wait 10 minutes before alerting on the same source agai
 VERBOSE = False
 ports_seen = {}
 last_alerted = {}      # source IP -> time of its last port scan alert
+mac_to_ips = {}        # MAC -> set of IPs it has claimed
+claim_alerted = {}     # MAC -> time of its last multiple-IP alert
+
 
 with open("oui.csv", newline="") as f:   # open the file; it closes itself automatically when done
     reader = csv.reader(f)                # reads the file row by row, handling quoted commas
@@ -114,6 +117,7 @@ with open("oui.csv", newline="") as f:   # open the file; it closes itself autom
         prefix = row[1]                            # second column (Assignment)
         company = row[2]                            # third column (Organization Name)
         vendors[prefix] = company
+
 PROTECTED_IPS = {
     "192.168.4.1": "router",
     "192.168.4.172": "homelab / Pi-hole DNS"
@@ -157,6 +161,25 @@ def check_mac_change(ip_address, old_mac, new_mac):
     print(f"[{level}] MAC change for {ip_address}{role}: was {old_mac} ({get_vendor(old_mac)}), now {new_mac} ({get_vendor(new_mac)})")
     mac_alerted[ip_address] = now
 
+def check_mac_claims(ip_address, mac_address):
+    if mac_address not in mac_to_ips:
+        mac_to_ips[mac_address] = set()
+    mac_to_ips[mac_address].add(ip_address)
+    claimed = mac_to_ips[mac_address]
+    if len(claimed) <= 1:
+        return
+    now = time.time()
+    last_alert = claim_alerted.get(mac_address)
+    if last_alert is not None and now - last_alert <= ALERT_COOLDOWN:
+        return
+    level = "WARNING"
+    for ip in claimed:
+        if ip in PROTECTED_IPS:
+            level = "CRITICAL"
+    ip_list = ", ".join(sorted(claimed))
+    print(f"[{level}] {mac_address} ({get_vendor(mac_address)}) is claiming multiple IPs: {ip_list}")
+    claim_alerted[mac_address] = now
+
 def handle_packet(packet):
     if not packet.haslayer(IP):
         if packet.haslayer(ARP):
@@ -170,6 +193,7 @@ def handle_packet(packet):
                     print(f"ARP Reply | {ip_address} is at {mac_address}")
            if ip_address == "0.0.0.0":
                 return
+           check_mac_claims(ip_address, mac_address)
            if ip_address not in known_devices:
                 known_devices[ip_address] = mac_address
                 print (f"[INFO] New device discovered: {ip_address} -> {mac_address} ({get_vendor(mac_address)})")
