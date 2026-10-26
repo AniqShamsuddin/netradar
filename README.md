@@ -14,7 +14,8 @@ I built it to work alongside my Pi-hole DNS server on my homelab, so I could see
 - Warns when a known IP address suddenly appears with a different MAC address, a possible sign of ARP spoofing
 - Identifies device manufacturers (for example Apple, Amazon, eero) using the official IEEE OUI registry
 - Saves each capture to a `.pcap` file for deeper analysis in Wireshark
-
+- Detects TCP port scans by tracking how many different ports each source attempts to connect to, counting only new connection attempts (SYN without ACK) so normal replies are never mistaken for scans 
+- Quiet mode by default: only alerts are printed, so warnings are never buried in routine traffic
 ## How it works
 
 Scapy captures packets from the network interface, and each packet is passed to a handler function as it arrives. Non-IP packets are handled first by a guard clause, which labels ARP traffic and summarizes everything else. Devices are tracked in a dictionary that maps IP addresses to MAC addresses, which persists for the whole run so each device is only announced once. Vendor names come from the IEEE OUI registry, which is loaded into a dictionary once at startup so every lookup is instant and happens locally.
@@ -38,6 +39,8 @@ sudo .venv/bin/python sniffer.py
 
 Capturing raw network traffic is a privileged action, so the script must run as root with `sudo`. The full path to the virtual environment's Python is used because `sudo` does not inherit the activated environment.
 
+By default NetRadar runs in quiet mode and prints only alerts. To see every packet for debugging, set `VERBOSE = True` near the top of `sniffer.py`. The port scan sensitivity can be tuned with `PORT_SCAN_THRESHOLD`.
+
 ## Security notes
 
 - Vendor lookups happen locally. Device MAC addresses are never sent to an outside service.
@@ -46,7 +49,7 @@ Capturing raw network traffic is a privileged action, so the script must run as 
 
 ## Roadmap
 
-- **Phase 3: Detections** for port scans, ARP spoofing, and SYN floods
+- **Phase 3: Detections** for ARP spoofing, SYN floods, and time-windowed port scan detection (basic port scan detection is complete)
 - **Phase 4: Live dashboard** with a real-time network map in the browser
 - **Phase 5: Attack lab** to test each detection against simulated attacks on my own network
 
