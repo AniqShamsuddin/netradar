@@ -38,7 +38,9 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 wget -O oui.csv https://standards-oui.ieee.org/oui/oui.csv
+cp config.example.py config.py
 ```
+Then edit `config.py` and set `PROTECTED_IPS` to the IP addresses of your own router and other critical devices.
 
 ## Usage
 

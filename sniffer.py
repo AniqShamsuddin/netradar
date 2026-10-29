@@ -97,13 +97,10 @@
 
 import time
 import csv
+from config import VERBOSE, PORT_SCAN_THRESHOLD, PORT_SCAN_WINDOW, ALERT_COOLDOWN, PROTECTED_IPS
 from scapy.all import sniff, IP, TCP, UDP, ARP
 known_devices = {}
 vendors = {}
-PORT_SCAN_THRESHOLD = 15
-PORT_SCAN_WINDOW = 60  # only count ports contacted in the last 60 seconds
-ALERT_COOLDOWN = 600   # wait 10 minutes before alerting on the same source again
-VERBOSE = False
 ports_seen = {}
 last_alerted = {}      # source IP -> time of its last port scan alert
 mac_to_ips = {}        # MAC -> set of IPs it has claimed
@@ -118,10 +115,6 @@ with open("oui.csv", newline="") as f:   # open the file; it closes itself autom
         company = row[2]                            # third column (Organization Name)
         vendors[prefix] = company
 
-PROTECTED_IPS = {
-    "192.168.4.1": "router",
-    "192.168.4.172": "homelab / Pi-hole DNS"
-}
 mac_alerted = {}      # IP -> time of its last MAC change alert
 
 print(f"[INFO] Loaded {len(vendors)} vendors prefixes from oui.csv")
