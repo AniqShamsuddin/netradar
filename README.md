@@ -64,6 +64,10 @@ By default NetRadar runs in quiet mode and prints only alerts. Settings near the
 - **Phase 4: Live dashboard** with a real-time network map in the browser
 - **Phase 5: Attack lab** to test each detection against simulated attacks on my own network
 
+## Testing
+
+Detections are validated against live attacks on an isolated test network: port scans with Nmap, and ARP spoofing with a local script (not included in this repository for safety).
+
 ## Disclaimer
 
 Only run NetRadar on networks you own or have explicit permission to monitor. Capturing traffic on networks without authorization may be illegal.
