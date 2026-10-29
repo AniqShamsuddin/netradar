@@ -97,6 +97,7 @@
 
 import time
 import csv
+import json
 from config import VERBOSE, PORT_SCAN_THRESHOLD, PORT_SCAN_WINDOW, ALERT_COOLDOWN, PROTECTED_IPS
 from scapy.all import sniff, IP, TCP, UDP, ARP
 known_devices = {}
@@ -123,6 +124,10 @@ def alert(message):
     with open("alerts.log", "a") as f:
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         f.write(f"{timestamp} {message}\n")
+
+def save_devices():
+    with open("devices.json", "w") as f:
+        json.dump(known_devices, f)
 
 def get_vendor(mac):
     prefix = mac.replace(":","").upper()[:6]                     # your one-liner, using mac
@@ -195,6 +200,7 @@ def handle_packet(packet):
            if ip_address not in known_devices:
                 known_devices[ip_address] = mac_address
                 alert(f"[INFO] New device discovered: {ip_address} -> {mac_address} ({get_vendor(mac_address)})")
+                save_devices()
            elif known_devices[ip_address] != mac_address:
                 check_mac_change(ip_address, known_devices[ip_address], mac_address)
         else:
