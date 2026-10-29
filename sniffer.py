@@ -106,7 +106,6 @@ last_alerted = {}      # source IP -> time of its last port scan alert
 mac_to_ips = {}        # MAC -> set of IPs it has claimed
 claim_alerted = {}     # MAC -> time of its last multiple-IP alert
 
-
 with open("oui.csv", newline="") as f:   # open the file; it closes itself automatically when done
     reader = csv.reader(f)                # reads the file row by row, handling quoted commas
     next(reader)                          # skips one row (the header line)
@@ -118,6 +117,12 @@ with open("oui.csv", newline="") as f:   # open the file; it closes itself autom
 mac_alerted = {}      # IP -> time of its last MAC change alert
 
 print(f"[INFO] Loaded {len(vendors)} vendors prefixes from oui.csv")
+
+def alert(message):
+    print(message)
+    with open("alerts.log", "a") as f:
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        f.write(f"{timestamp} {message}\n")
 
 def get_vendor(mac):
     prefix = mac.replace(":","").upper()[:6]                     # your one-liner, using mac
@@ -137,7 +142,7 @@ def check_port_scan(source_ip, port):
     if port_count > PORT_SCAN_THRESHOLD:
         last_alert = last_alerted.get(source_ip)
         if last_alert is None or now - last_alert > ALERT_COOLDOWN:
-            print(f"[WARNING] Possible port scan from {source_ip}: {port_count} different ports in the last {PORT_SCAN_WINDOW} seconds")
+            alert(f"[WARNING] Possible port scan from {source_ip}: {port_count} different ports in the last {PORT_SCAN_WINDOW} seconds")
             last_alerted[source_ip] = now
 
 def check_mac_change(ip_address, old_mac, new_mac):
@@ -151,7 +156,7 @@ def check_mac_change(ip_address, old_mac, new_mac):
     else:
         level = "WARNING"
         role = " "
-    print(f"[{level}] MAC change for {ip_address}{role}: was {old_mac} ({get_vendor(old_mac)}), now {new_mac} ({get_vendor(new_mac)})")
+    alert(f"[{level}] MAC change for {ip_address}{role}: was {old_mac} ({get_vendor(old_mac)}), now {new_mac} ({get_vendor(new_mac)})")
     mac_alerted[ip_address] = now
 
 def check_mac_claims(ip_address, mac_address):
@@ -170,7 +175,7 @@ def check_mac_claims(ip_address, mac_address):
         if ip in PROTECTED_IPS:
             level = "CRITICAL"
     ip_list = ", ".join(sorted(claimed))
-    print(f"[{level}] {mac_address} ({get_vendor(mac_address)}) is claiming multiple IPs: {ip_list}")
+    alert(f"[{level}] {mac_address} ({get_vendor(mac_address)}) is claiming multiple IPs: {ip_list}")
     claim_alerted[mac_address] = now
 
 def handle_packet(packet):
@@ -189,7 +194,7 @@ def handle_packet(packet):
            check_mac_claims(ip_address, mac_address)
            if ip_address not in known_devices:
                 known_devices[ip_address] = mac_address
-                print (f"[INFO] New device discovered: {ip_address} -> {mac_address} ({get_vendor(mac_address)})")
+                alert(f"[INFO] New device discovered: {ip_address} -> {mac_address} ({get_vendor(mac_address)})")
            elif known_devices[ip_address] != mac_address:
                 check_mac_change(ip_address, known_devices[ip_address], mac_address)
         else:
