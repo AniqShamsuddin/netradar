@@ -5,3 +5,4 @@ config.py
 __pycache__/
 attack_arp.py
 alerts.log
+devices.json
